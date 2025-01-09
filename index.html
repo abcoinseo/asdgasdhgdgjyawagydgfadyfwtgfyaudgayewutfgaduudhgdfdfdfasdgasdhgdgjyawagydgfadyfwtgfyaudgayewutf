@@ -51,7 +51,7 @@
       const pin = pinInput.value;
 
       if (!number || !pin) {
-        alert('Please enter both number and PIN.');
+     
         return;
       }
 
@@ -66,7 +66,7 @@
           loadHome(userData.wallet);
           loadTransactionHistory();
         } else {
-          alert('Incorrect PIN. Please try again.');
+         
         }
       } else {
         // New user, register
@@ -116,7 +116,7 @@
       const amount = parseInt(sendAmountInput.value);
 
       if (!sendToNumber || !amount || amount <= 0) {
-        alert('Please enter a valid number and amount.');
+        
         return;
       }
 
@@ -127,7 +127,7 @@
       const receiverSnapshot = await get(receiverRef);
 
       if (!receiverSnapshot.exists()) {
-        alert('Recipient number does not exist.');
+       
         return;
       }
 
@@ -135,7 +135,6 @@
       const senderWallet = senderData.wallet;
 
       if (senderWallet < amount) {
-        alert('Insufficient balance.');
         return;
       }
 
@@ -203,8 +202,8 @@
   </div>
 
   <div id="home-section" class="container" style="display: none;">
-    <h2>Wallet</h2>
-    <p>Balance: <span id="wallet-balance">0</span></p>
+    <h2>AB Wallet</h2>
+    <p> <span id="wallet-balance">0</span></p>
     <div>
       <button id="send-btn"><i class="material-icons">send</i> Send</button>
       <button id="receive-btn"><i class="material-icons">download</i> Receive</button>
