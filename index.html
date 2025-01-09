@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>E-Wallet</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <script type="module">
+    // Import Firebase SDKs
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+    import { getDatabase, ref, set, get, update, push } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js";
+
+    // Firebase Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyCHUQ-0KAlweV5rOzDzi-6fnYuiuHOhXDs",
+      authDomain: "e-wallet-26752.firebaseapp.com",
+      databaseURL: "https://e-wallet-26752-default-rtdb.firebaseio.com",
+      projectId: "e-wallet-26752",
+      storageBucket: "e-wallet-26752.appspot.com",
+      messagingSenderId: "1001408888365",
+      appId: "1:1001408888365:web:f2c6c1db135447e4e382a4"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // DOM Elements
+    const authSection = document.getElementById('auth-section');
+    const homeSection = document.getElementById('home-section');
+    const walletDisplay = document.getElementById('wallet-balance');
+    const numberInput = document.getElementById('number');
+    const pinInput = document.getElementById('pin');
+    const loginButton = document.getElementById('login-btn');
+    const sendButton = document.getElementById('send-btn');
+    const receiveButton = document.getElementById('receive-btn');
+    const receivePopup = document.getElementById('receive-popup');
+    const closeReceivePopup = document.getElementById('close-receive-popup');
+    const sendPopup = document.getElementById('send-popup');
+    const closeSendPopup = document.getElementById('close-send-popup');
+    const sendNumberInput = document.getElementById('send-number');
+    const sendAmountInput = document.getElementById('send-amount');
+    const confirmSendButton = document.getElementById('confirm-send-btn');
+    const transactionHistory = document.getElementById('transaction-history');
+
+    let currentUser = null;
+
+    // Login / Register
+    loginButton.addEventListener('click', async () => {
+      const number = numberInput.value;
+      const pin = pinInput.value;
+
+      if (!number || !pin) {
+        alert('Please enter both number and PIN.');
+        return;
+      }
+
+      const userRef = ref(db, `users/${number}`);
+      const snapshot = await get(userRef);
+
+      if (snapshot.exists()) {
+        // Existing user, check PIN
+        const userData = snapshot.val();
+        if (userData.pin === pin) {
+          currentUser = number;
+          loadHome(userData.wallet);
+          loadTransactionHistory();
+        } else {
+          alert('Incorrect PIN. Please try again.');
+        }
+      } else {
+        // New user, register
+        set(userRef, { pin: pin, wallet: 0 });
+        currentUser = number;
+        loadHome(0);
+        loadTransactionHistory();
+      }
+    });
+
+    // Load Home
+    function loadHome(wallet) {
+      authSection.style.display = 'none';
+      homeSection.style.display = 'block';
+      walletDisplay.textContent = wallet;
+    }
+
+    // Load Transaction History
+    async function loadTransactionHistory() {
+      const transactionRef = ref(db, `transactions/${currentUser}`);
+      const snapshot = await get(transactionRef);
+
+      transactionHistory.innerHTML = '';
+      if (snapshot.exists()) {
+        const transactions = snapshot.val();
+        for (const id in transactions) {
+          const { amount, type, timestamp, to } = transactions[id];
+          const historyItem = document.createElement('div');
+          historyItem.classList.add('history-item');
+          historyItem.innerHTML = `
+            <p>${type === 'send' ? `Sent to ${to}` : 'Received'}</p>
+            <p>Amount: ${amount}</p>
+            <p>${new Date(timestamp).toLocaleString()}</p>
+          `;
+          transactionHistory.appendChild(historyItem);
+        }
+      }
+    }
+
+    // Send Money
+    sendButton.addEventListener('click', () => {
+      sendPopup.style.display = 'block';
+    });
+
+    confirmSendButton.addEventListener('click', async () => {
+      const sendToNumber = sendNumberInput.value;
+      const amount = parseInt(sendAmountInput.value);
+
+      if (!sendToNumber || !amount || amount <= 0) {
+        alert('Please enter a valid number and amount.');
+        return;
+      }
+
+      const senderRef = ref(db, `users/${currentUser}`);
+      const receiverRef = ref(db, `users/${sendToNumber}`);
+
+      const senderSnapshot = await get(senderRef);
+      const receiverSnapshot = await get(receiverRef);
+
+      if (!receiverSnapshot.exists()) {
+        alert('Recipient number does not exist.');
+        return;
+      }
+
+      const senderData = senderSnapshot.val();
+      const senderWallet = senderData.wallet;
+
+      if (senderWallet < amount) {
+        alert('Insufficient balance.');
+        return;
+      }
+
+      // Update balances
+      update(senderRef, { wallet: senderWallet - amount });
+      update(receiverRef, { wallet: receiverSnapshot.val().wallet + amount });
+
+      // Save transaction
+      const senderTransactionRef = ref(db, `transactions/${currentUser}`);
+      const receiverTransactionRef = ref(db, `transactions/${sendToNumber}`);
+      const transactionData = {
+        amount,
+        type: 'send',
+        timestamp: Date.now(),
+        to: sendToNumber,
+      };
+
+      push(senderTransactionRef, transactionData);
+      push(receiverTransactionRef, { ...transactionData, type: 'receive' });
+
+      alert('Money sent successfully.');
+      sendPopup.style.display = 'none';
+      loadHome(senderWallet - amount);
+      loadTransactionHistory();
+    });
+
+    // Receive Money
+    receiveButton.addEventListener('click', () => {
+      document.getElementById('user-number-display').textContent = currentUser;
+      receivePopup.style.display = 'block';
+    });
+
+    // Close Popups
+    closeSendPopup.addEventListener('click', () => {
+      sendPopup.style.display = 'none';
+    });
+    closeReceivePopup.addEventListener('click', () => {
+      receivePopup.style.display = 'none';
+    });
+  </script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #121212;
+      color: #fff;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    .container { padding: 20px; max-width: 400px; margin: auto; }
+    input, button { margin: 10px; padding: 10px; width: 80%; }
+    button { background-color: #007BFF; border: none; color: white; cursor: pointer; display: inline-block; width: 48%; }
+    .material-icons { vertical-align: middle; margin-right: 8px; }
+    .popup { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #333; padding: 20px; border-radius: 8px; }
+    .popup h3, .popup p { margin: 10px 0; }
+    .history-item { background: #222; padding: 10px; margin: 10px 0; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div id="auth-section" class="container">
+    <h2>Login</h2>
+    <input id="number" type="text" placeholder="Phone Number">
+    <input id="pin" type="password" placeholder="PIN">
+    <button id="login-btn"><i class="material-icons">login</i> Login</button>
+  </div>
+
+  <div id="home-section" class="container" style="display: none;">
+    <h2>Wallet</h2>
+    <p>Balance: <span id="wallet-balance">0</span></p>
+    <div>
+      <button id="send-btn"><i class="material-icons">send</i> Send</button>
+      <button id="receive-btn"><i class="material-icons">download</i> Receive</button>
+    </div>
+    <h3>Transaction History</h3>
+    <div id="transaction-history"></div>
+  </div>
+
+  <div id="send-popup" class="popup">
+    <h3>Send Money</h3>
+    <input id="send-number" type="text" placeholder="Recipient Phone Number">
+    <input id="send-amount" type="number" placeholder="Amount">
+    <button id="confirm-send-btn"><i class="material-icons">check</i> Confirm</button>
+    <button id="close-send-popup"><i class="material-icons">close</i> Close</button>
+  </div>
+
+  <div id="receive-popup" class="popup">
+    <h3>Your Number</h3>
+    <p id="user-number-display"></p>
+    <button id="close-receive-popup"><i class="material-icons">close</i> Close</button>
+  </div>
+</body>
+</html>
